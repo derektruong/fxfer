@@ -1,2 +1,2 @@
 # file-transferer
-Tool that can move file, binary content from source to destination seamlessly, support popular protocols (FTP, SFTP, S3) and storage locations (S3, NAS)
+Tool designed to move files and binary content from a source to a destination seamlessly, with reliability and durability for any size of file. It supports popular protocols such as FTP, SFTP, and S3, as well as storage locations like S3-compatible and NAS.
