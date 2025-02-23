@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.77.1
 	github.com/aws/smithy-go/metrics/smithyotelmetrics v1.0.4
 	github.com/go-logr/logr v1.4.2
+	github.com/go-playground/validator/v10 v10.25.0
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/samber/lo v1.49.1
@@ -17,7 +18,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.25.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 )
 
