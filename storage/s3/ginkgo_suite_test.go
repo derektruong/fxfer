@@ -14,7 +14,6 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/minio"
 	"github.com/testcontainers/testcontainers-go/network"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -51,9 +50,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	DeferCleanup(network.Remove, context.Background())
 
-	By("setup minio cluster")
+	By("setup minio container")
 	minioMetadata, err := setupMinIOContainer(ctx, network.Name)
 	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func ()  {
+		if minioMetadata.Container != nil {
+			Expect(minioMetadata.Container.Terminate(context.Background())).To(Succeed())
+		}
+	})
 	endpoint = minioMetadata.Endpoint
 	accessKey = minioMetadata.AccessKey
 	secretKey = minioMetadata.SecretKey
@@ -79,31 +83,25 @@ var _ = BeforeSuite(func() {
 })
 
 type minioMetadata struct {
+	Container *minio.MinioContainer
 	Endpoint  string
 	AccessKey string
 	SecretKey string
 }
 
 func setupMinIOContainer(ctx context.Context, network string) (*minioMetadata, error) {
-	By("setup minio cluster")
 	prefix := gofakeit.Letter() + gofakeit.Password(true, false, true, false, false, 5)
-	nameAlias := prefix + "-minio"
+	aliasName := prefix + "-minio"
 	minioContainer, err := minio.Run(
 		ctx,
 		minioImage,
+		minio.WithUsername(minioRootUser),
+		minio.WithPassword(minioRootPassword),
 		testcontainers.CustomizeRequest(testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
-				Image:        minioImage,
-				ExposedPorts: []string{minioPort, minioConsolePort},
-				Env: map[string]string{
-					"MINIO_ROOT_USER":     minioRootUser,
-					"MINIO_ROOT_PASSWORD": minioRootPassword,
-				},
-				Cmd:            []string{"server", "--console-address", ":" + minioConsolePort, "/data"},
-				Name:           nameAlias,
+				Name:           aliasName,
 				Networks:       []string{network},
-				NetworkAliases: map[string][]string{network: {nameAlias}},
-				WaitingFor:     wait.ForListeningPort(minioPort + "/tcp"),
+				NetworkAliases: map[string][]string{network: {aliasName}},
 			},
 		}),
 	)
@@ -111,26 +109,15 @@ func setupMinIOContainer(ctx context.Context, network string) (*minioMetadata, e
 		return nil, err
 	}
 
-	endpoint, err := minioContainer.Host(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// create user
-	accessKey = gofakeit.HexUint(128)[2:]
-	secretKey = gofakeit.HexUint(128)[2:]
-	_, _, err = minioContainer.Exec(ctx, []string{"mc", "admin", "user", "add", nameAlias, accessKey, secretKey, "--no-color"})
-	if err != nil {
-		return nil, err
-	}
-	_, _, err = minioContainer.Exec(ctx, []string{"mc", "admin", "policy", "attach", nameAlias, "readwrite", "--user=" + accessKey, "--no-color"})
+	endpoint, err := minioContainer.Endpoint(ctx, "")
 	if err != nil {
 		return nil, err
 	}
 
 	return &minioMetadata{
+		Container: minioContainer,
 		Endpoint:  endpoint,
-		AccessKey: accessKey,
-		SecretKey: secretKey,
+		AccessKey: minioRootUser,
+		SecretKey: minioRootPassword,
 	}, nil
 }
