@@ -2,6 +2,7 @@ package xferfiletest
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/brianvoe/gofakeit/v7"
@@ -9,12 +10,14 @@ import (
 )
 
 func InfoFactory() *xferfile.Info {
+	dirPath := fmt.Sprintf("%s/%s", gofakeit.Word(), gofakeit.Word())
+	fileName := gofakeit.Word()
 	ext := gofakeit.FileExtension()
-	path := fmt.Sprintf("%s/%s.%s", gofakeit.Word(), gofakeit.Word(), ext)
+	path := fmt.Sprintf("%s/%s.%s", dirPath, fileName, ext)
 	return &xferfile.Info{
 		Path:       path,
-		Size:       gofakeit.Int64(),
-		Name:       gofakeit.Word(),
+		Size:       int64(gofakeit.Number(1, 1000000)),
+		Name:       fileName,
 		Extension:  ext,
 		ModTime:    gofakeit.PastDate(),
 		StartTime:  gofakeit.PastDate(),
@@ -22,7 +25,7 @@ func InfoFactory() *xferfile.Info {
 		Offset:     int64(gofakeit.Number(1, 1000000)),
 		Checksum:   gofakeit.ImagePng(10, 10),
 		Metadata: map[string]string{
-			"multipartKey": strings.Replace(path, ext, ".part", -1),
+			"multipartKey": strings.Replace(path, filepath.Ext(path), ".part", -1),
 		},
 	}
 }
