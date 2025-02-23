@@ -46,7 +46,7 @@ metadata, additional information. This file SHOULD be put on *Destination Storag
 ### Support storages
 
 - [ ] Support local filesystem storage.
-- [ ] Support S3 storage, S3-compatible storage (e.g., MinIO, Ceph, Storj, ...).
+- [X] Support S3 storage, S3-compatible storage (e.g., MinIO, Ceph, Storj, ...).
 - [ ] Support FTP, SFTP server storage.
 - [ ] Support Azure Blob Storage.
 - [ ] Support Google Cloud Storage.
