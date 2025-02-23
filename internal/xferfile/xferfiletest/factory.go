@@ -9,12 +9,12 @@ import (
 	"github.com/derektruong/fxfer/internal/xferfile"
 )
 
-func InfoFactory() *xferfile.Info {
+func InfoFactory(editFn func(*xferfile.Info)) *xferfile.Info {
 	dirPath := fmt.Sprintf("%s/%s", gofakeit.Word(), gofakeit.Word())
 	fileName := gofakeit.Word()
 	ext := gofakeit.FileExtension()
 	path := fmt.Sprintf("%s/%s.%s", dirPath, fileName, ext)
-	return &xferfile.Info{
+	info := &xferfile.Info{
 		Path:       path,
 		Size:       int64(gofakeit.Number(1, 1000000)),
 		Name:       fileName,
@@ -28,4 +28,8 @@ func InfoFactory() *xferfile.Info {
 			"multipartKey": strings.Replace(path, filepath.Ext(path), ".part", -1),
 		},
 	}
+	if editFn != nil {
+		editFn(info)
+	}
+	return info
 }
