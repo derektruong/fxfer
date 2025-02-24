@@ -1,4 +1,4 @@
-name: Bump Version
+name: Generate
 
 on:
   push:
@@ -6,58 +6,32 @@ on:
       - main
 
 jobs:
-  bump-version:
+  test-next-release-custom:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # fetch full history for tags
+          fetch-depth: 0 # required for github-action-get-previous-tag
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install standard-version
-        run: npm install -g standard-version
-
-      - name: Configure Git
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-      - name: Bump version
-        run: standard-version
-
-      - name: Create new branch and push changes
+      - name: Get Previous tag
+        id: previoustag
+        uses: 'WyriHaximus/github-action-get-previous-tag@v1'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH="release-version-bump-$(date +%s)"
-          git checkout -b $BRANCH
-          git push --set-upstream origin $BRANCH
 
-      - name: Create a Pull Request
-        id: create_pr
-        uses: peter-evans/create-pull-request@v5
+      - name: Get next version
+        id: next
+        uses: 'WyriHaximus/github-action-next-release-version@1.0.0'
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: $BRANCH
-          title: "chore: bump version"
-          body: "This PR bumps the version automatically."
-          base: main
-          labels: "auto-merge"
+          version: ${{ steps.previoustag.outputs.tag }}
 
-      - name: Approve PR
-        uses: hmarr/auto-approve-action@v3
+      - name: Create release
+        id: create_release_id
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Enable Auto-Merge
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
-          merge-method: squash  # options: squash, merge, rebase
+          tag_name: ${{ steps.next.outputs.version }}
+          release_name: Release ${{ steps.next.outputs.version }}
