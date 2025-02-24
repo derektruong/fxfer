@@ -11,25 +11,21 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/checkout@v4
         with:
-          go-version: '1.24'
+          fetch-depth: 0  # ensure full commit history for versioning
 
-      - name: Bump version and push tag
-        id: bump
-        uses: onyxmueller/build-tag-number@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Node.js (needed for semantic versioning)
+        uses: actions/setup-node@v4
         with:
-          major_pattern: '^feat!!:'
-          minor_pattern: '^feat!:'
-          patch_pattern: '^fix:|^feat:'
+          node-version: '22'
 
-      - name: Push changes
+      - name: Install standard-version
+        run: npm install -g standard-version
+
+      - name: Bump version
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git push --follow-tags
+          standard-version
+          git push --follow-tags origin main
