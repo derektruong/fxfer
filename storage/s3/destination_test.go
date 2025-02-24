@@ -45,7 +45,7 @@ var _ = Describe("Destination", func() {
 		mockClient = mock_protoc.NewMockClient(mockCtrl)
 		destStorage = destStorageFactory(nil)
 		s3ProtocClient = s3_protoc.NewClient(endpoint, bucketName, region, accessKey, secretKey)
-		fileInfo = *xferfiletest.InfoFactory(nil)
+		fileInfo = xferfiletest.InfoFactory(nil)
 
 		infoPath, err = xferfile.GenerateInfoPath(fileInfo.Path)
 		Expect(err).ToNot(HaveOccurred())

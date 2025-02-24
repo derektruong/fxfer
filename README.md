@@ -46,15 +46,15 @@ metadata, additional information. This file SHOULD be put on *Destination Storag
 ### Support storages
 
 - [ ] Support local filesystem storage.
-- [X] Support S3 storage, S3-compatible storage (e.g., MinIO, Ceph, Storj, ...).
+- [x] Support S3 storage, S3-compatible storage (e.g., MinIO, Ceph, Storj, ...).
 - [ ] Support FTP, SFTP server storage.
 - [ ] Support Azure Blob Storage.
 - [ ] Support Google Cloud Storage.
 
 ### Resilience and performance
 
-- [ ] Support resuming interrupted transfers.
-- [ ] Support transfer progress tracking.
-- [ ] Support exponential backoff for retrying failed transfers automatically.
+- [x] Support resuming interrupted transfers.
+- [x] Support transfer progress tracking.
+- [x] Support exponential backoff for retrying failed transfers automatically.
 - [ ] Support checksum verification.
 - [ ] Support compression during transfer.

@@ -9,7 +9,7 @@ import (
 	"github.com/derektruong/fxfer/internal/xferfile"
 )
 
-func InfoFactory(editFn func(*xferfile.Info)) *xferfile.Info {
+func InfoFactory(editFn func(*xferfile.Info)) xferfile.Info {
 	dirPath := fmt.Sprintf("%s/%s", gofakeit.Word(), gofakeit.Word())
 	fileName := gofakeit.Word()
 	ext := gofakeit.FileExtension()
@@ -31,5 +31,5 @@ func InfoFactory(editFn func(*xferfile.Info)) *xferfile.Info {
 	if editFn != nil {
 		editFn(info)
 	}
-	return info
+	return *info
 }
