@@ -1,5 +1,3 @@
-//go:generate go run source.vtvlive.vn/cellutions/validator/gen . SourceCommand DestinationCommand
-
 package fxfer
 
 import (
