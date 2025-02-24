@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # required for tag history
+          fetch-depth: 0  # fetch full history for tags
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -31,9 +31,33 @@ jobs:
       - name: Bump version
         run: standard-version
 
-      - name: Push version bump and tags
+      - name: Create new branch and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          git push --follow-tags origin main
+          BRANCH="release-version-bump-$(date +%s)"
+          git checkout -b $BRANCH
+          git push --set-upstream origin $BRANCH
+
+      - name: Create a Pull Request
+        id: create_pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: $BRANCH
+          title: "chore: bump version"
+          body: "This PR bumps the version automatically."
+          base: main
+          labels: "auto-merge"
+
+      - name: Approve PR
+        uses: hmarr/auto-approve-action@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable Auto-Merge
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
+          merge-method: squash  # options: squash, merge, rebase
