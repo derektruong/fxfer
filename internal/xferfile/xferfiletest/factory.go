@@ -13,7 +13,7 @@ func InfoFactory(editFn func(*xferfile.Info)) xferfile.Info {
 	dirPath := fmt.Sprintf("%s/%s", gofakeit.Word(), gofakeit.Word())
 	fileName := gofakeit.Word()
 	ext := gofakeit.FileExtension()
-	path := fmt.Sprintf("%s/%s.%s", dirPath, fileName, ext)
+	path := fmt.Sprintf("%s.%s", filepath.Join(dirPath, fileName), ext)
 	info := &xferfile.Info{
 		Path:       path,
 		Size:       int64(gofakeit.Number(1, 1000000)),
