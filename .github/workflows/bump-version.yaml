@@ -13,9 +13,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # ensure full commit history for versioning
+          fetch-depth: 0  # required for tag history
 
-      - name: Set up Node.js (needed for semantic versioning)
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -23,9 +23,17 @@ jobs:
       - name: Install standard-version
         run: npm install -g standard-version
 
-      - name: Bump version
+      - name: Configure Git
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          standard-version
+
+      - name: Bump version
+        run: standard-version
+
+      - name: Push version bump and tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
           git push --follow-tags origin main
