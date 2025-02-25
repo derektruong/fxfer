@@ -1,5 +1,17 @@
 # fxfer
 
+<p align="center">
+	<a href="https://pkg.go.dev/github.com/derektruong/fxfer"><img src="https://pkg.go.dev/badge/github.com/derektruong/fxfer.svg" alt="Go Reference"></a>
+	<a href="https://goreportcard.com/report/github.com/derektruong/fxfer"><img src="https://goreportcard.com/badge/github.com/derektruong/fxfer" alt="Go Report Card"></a>
+	<a href="https://github.com/derektruong/fxfer/releases"><img src="https://img.shields.io/github/v/release/derektruong/fxfer" alt="GitHub release"></a>
+	<a href="https://github.com/derektruong/fxfer/blob/main/LICENSE"><img src="https://img.shields.io/github/license/derektruong/fxfer" alt="License"></a>
+	<a href="https://codecov.io/gh/derektruong/fxfer"><img src="https://codecov.io/gh/derektruong/fxfer/branch/main/graph/badge.svg" alt="Code Coverage"></a>
+</p>
+
+---
+
+## Table of Contents
+
 - [Motivation](#motivation)
 - [Quick Start](#quick-start)
 - [Concepts](#concepts)
@@ -32,6 +44,7 @@ Next include `fxfer` in your application.
 ```bash
 import "github.com/derektruong/fxfer"
 ```
+
 
 ## Concepts
 
@@ -99,15 +112,15 @@ func main() {
 	srcStorage := s3.NewSource(logger)
 	destStorage := ftp.NewDestination(logger)
 
-	transferer := fxfer.NewTransferer(logger, fxfer.WithMaxFileSize(5<<40)) // 5TB
-	err = transferer.Transfer(
+	transfer := fxfer.NewTransfer(logger, fxfer.WithMaxFileSize(5<<40)) // 5TB
+	err = transfer.Transfer(
 		ctx,
-		fxfer.SourceCommand{
+		fxfer.SourceConfig{
 			FilePath: "path/to/source/file",
 			Storage:  srcStorage,
 			Client:   srcClient,
 		},
-		fxfer.DestinationCommand{
+		fxfer.DestinationConfig{
 			FilePath: "path/to/destination/file",
 			Storage:  destStorage,
 			Client:   destClient,

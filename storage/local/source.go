@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-const meterNamePrefix = "transferer/storage/local"
+const meterNamePrefix = "transfer/storage/local"
 
 type Source struct {
 	logger logr.Logger

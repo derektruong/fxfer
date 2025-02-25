@@ -9,7 +9,7 @@ tasks:
       Format: task ex-simple -- <src_storage> <dst_storage> <src_file> <dst_file>
       Ex: run `task ex-simple -- s3 s3 "prefix/to/file_a.txt" "prefix/to/file_b.txt"`
     dotenv: [ '.env' ]
-    dir: '{{.USER_WORKING_DIR}}/../file-transferer/examples'
+    dir: '{{.USER_WORKING_DIR}}/../file-transfer/examples'
     preconditions:
       - test -f .env
       - test -f simple/main.go

@@ -942,7 +942,7 @@ var _ = Describe("Destination", func() {
 		// been cleaned up.
 		It("write chunk clean ups temp files", func(ctx context.Context) {
 			// Create a temporary directory, so no files get mixed in.
-			tempDir, err := os.MkdirTemp("", "file-transferer-s3-cleanup-tests-")
+			tempDir, err := os.MkdirTemp("", "file-transfer-s3-cleanup-tests-")
 			Expect(err).ToNot(HaveOccurred())
 
 			s3API := s3APIWithTempFileAssertion{
@@ -1272,7 +1272,7 @@ func (s s3APIWithTempFileAssertion) UploadPart(
 	files, err := os.ReadDir(s.tempDir)
 	Expect(err).ToNot(HaveOccurred())
 	for _, file := range files {
-		Expect(strings.HasPrefix(file.Name(), "file-transferer-s3-tmp-")).To(BeTrue())
+		Expect(strings.HasPrefix(file.Name(), "file-transfer-s3-tmp-")).To(BeTrue())
 	}
 
 	Expect(len(files)).To(BeNumerically(">=", 1))

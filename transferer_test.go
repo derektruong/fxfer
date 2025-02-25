@@ -21,15 +21,15 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-var _ = Describe("transferer", func() {
+var _ = Describe("transfer", func() {
 	var (
 		mockCtrl          *gomock.Controller
 		mockClient        *mock_protoc.MockClient
 		mockSrcStorage    *mock_storage.MockSource
 		mockDestStorage   *mock_storage.MockDestination
-		tfr               fxfer.Transferer
-		srcCommand        fxfer.SourceCommand
-		destCommand       fxfer.DestinationCommand
+		tfr               fxfer.Transfer
+		srcConfig        fxfer.SourceConfig
+		destConfig       fxfer.DestinationConfig
 		callback          fxfer.ProgressUpdatedCallback
 		srcInfo, destInfo xferfile.Info
 	)
@@ -40,21 +40,21 @@ var _ = Describe("transferer", func() {
 		mockClient = mock_protoc.NewMockClient(mockCtrl)
 		mockSrcStorage = mock_storage.NewMockSource(mockCtrl)
 		mockDestStorage = mock_storage.NewMockDestination(mockCtrl)
-		tfr = fxfer.NewTransferer(GinkgoLogr, fxfer.WithDisabledRetry())
-		srcCommand = sourceCommandFactory(func(cmd *fxfer.SourceCommand) {
+		tfr = fxfer.NewTransfer(GinkgoLogr, fxfer.WithDisabledRetry())
+		srcConfig = sourceConfigFactory(func(cmd *fxfer.SourceConfig) {
 			cmd.Storage = mockSrcStorage
 			cmd.Client = mockClient
 		})
-		destCommand = destinationCommandFactory(func(cmd *fxfer.DestinationCommand) {
+		destConfig = destinationConfigFactory(func(cmd *fxfer.DestinationConfig) {
 			cmd.Storage = mockDestStorage
 			cmd.Client = mockClient
 		})
 		callback = func(progress fxfer.Progress) {}
 		srcInfo = xferfiletest.InfoFactory(func(i *xferfile.Info) {
-			i.Path = srcCommand.FilePath
+			i.Path = srcConfig.FilePath
 		})
 		destInfo = xferfiletest.InfoFactory(func(i *xferfile.Info) {
-			i.Path = destCommand.FilePath
+			i.Path = destConfig.FilePath
 		})
 	})
 
@@ -71,29 +71,29 @@ var _ = Describe("transferer", func() {
 			gomock.InOrder(
 				mockSrcStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					mockClient,
 				).Return(srcInfo, nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(xferfile.Info{}, xferfile.ErrFileNotExists),
 				mockDestStorage.EXPECT().CreateFile(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					srcInfo.Size,
 					srcInfo.ModTime,
 					mockClient,
 				).Return(nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(destInfo, nil),
 			)
 
-			Expect(tfr.Transfer(ctx, srcCommand, destCommand, callback)).To(Succeed())
+			Expect(tfr.Transfer(ctx, srcConfig, destConfig, callback)).To(Succeed())
 		}, NodeTimeout(10*time.Second))
 
 		It("should start over the transfer if the destination modification time is different", func(ctx context.Context) {
@@ -111,22 +111,22 @@ var _ = Describe("transferer", func() {
 			gomock.InOrder(
 				mockSrcStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					mockClient,
 				).Return(srcInfo, nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(destInfo, nil),
 				mockDestStorage.EXPECT().DeleteFile(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(nil),
 				mockDestStorage.EXPECT().CreateFile(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					srcInfo.Size,
 					srcInfo.ModTime,
 					mockClient,
@@ -134,7 +134,7 @@ var _ = Describe("transferer", func() {
 				mockDestStorage.EXPECT().
 					GetFileInfo(
 						gomock.AssignableToTypeOf(ctx),
-						destCommand.FilePath,
+						destConfig.FilePath,
 						mockClient,
 					).
 					DoAndReturn(func(ctx context.Context, path string, client protoc.Client) (xferfile.Info, error) {
@@ -143,7 +143,7 @@ var _ = Describe("transferer", func() {
 					}),
 			)
 
-			err := tfr.Transfer(ctx, srcCommand, destCommand, callback)
+			err := tfr.Transfer(ctx, srcConfig, destConfig, callback)
 			Expect(err).To(MatchError("error for skipping all other calls, just in test"))
 		}, NodeTimeout(10*time.Second))
 
@@ -167,29 +167,29 @@ var _ = Describe("transferer", func() {
 			gomock.InOrder(
 				mockSrcStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					mockClient,
 				).Return(srcInfo, nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(xferfile.Info{}, xferfile.ErrFileNotExists),
 				mockDestStorage.EXPECT().CreateFile(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					srcInfo.Size,
 					srcInfo.ModTime,
 					mockClient,
 				).Return(nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(destInfo, nil),
 				mockSrcStorage.EXPECT().GetFileFromOffset(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					int64(0),
 					mockClient,
 				).DoAndReturn(func(
@@ -202,19 +202,19 @@ var _ = Describe("transferer", func() {
 				}),
 				mockDestStorage.EXPECT().TransferFileChunk(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					gomock.Any(),
 					int64(0),
 					mockClient,
 				).Return(int64(1000), nil),
 				mockDestStorage.EXPECT().FinalizeTransfer(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(nil),
 			)
 
-			Expect(tfr.Transfer(ctx, srcCommand, destCommand, callback)).To(Succeed())
+			Expect(tfr.Transfer(ctx, srcConfig, destConfig, callback)).To(Succeed())
 		}, NodeTimeout(10*time.Second))
 
 		It("should transfer the file from the offset successfully", func(ctx context.Context) {
@@ -237,17 +237,17 @@ var _ = Describe("transferer", func() {
 			gomock.InOrder(
 				mockSrcStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					mockClient,
 				).Return(srcInfo, nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(destInfo, nil),
 				mockSrcStorage.EXPECT().GetFileFromOffset(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					int64(700),
 					mockClient,
 				).DoAndReturn(func(
@@ -260,19 +260,19 @@ var _ = Describe("transferer", func() {
 				}),
 				mockDestStorage.EXPECT().TransferFileChunk(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					gomock.Any(),
 					int64(700),
 					mockClient,
 				).Return(int64(300), nil),
 				mockDestStorage.EXPECT().FinalizeTransfer(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(nil),
 			)
 
-			Expect(tfr.Transfer(ctx, srcCommand, destCommand, callback)).To(Succeed())
+			Expect(tfr.Transfer(ctx, srcConfig, destConfig, callback)).To(Succeed())
 		}, NodeTimeout(10*time.Second))
 
 		It("should delete file when transfer cannot finish", func(ctx context.Context) {
@@ -295,17 +295,17 @@ var _ = Describe("transferer", func() {
 			gomock.InOrder(
 				mockSrcStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					mockClient,
 				).Return(srcInfo, nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(destInfo, nil),
 				mockSrcStorage.EXPECT().GetFileFromOffset(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					int64(700),
 					mockClient,
 				).DoAndReturn(func(
@@ -318,7 +318,7 @@ var _ = Describe("transferer", func() {
 				}),
 				mockDestStorage.EXPECT().TransferFileChunk(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					gomock.Any(),
 					int64(700),
 					mockClient,
@@ -329,24 +329,24 @@ var _ = Describe("transferer", func() {
 				}).Return(int64(300), nil),
 				mockDestStorage.EXPECT().FinalizeTransfer(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(storage.ErrFileOrObjectCannotFinalize),
 				mockDestStorage.EXPECT().DeleteFile(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(nil),
 			)
 
-			Expect(tfr.Transfer(ctx, srcCommand, destCommand, callback)).
+			Expect(tfr.Transfer(ctx, srcConfig, destConfig, callback)).
 				To(MatchError(storage.ErrFileOrObjectCannotFinalize))
 		}, NodeTimeout(10*time.Second))
 	})
 
 	Context("Transfer with retry", func() {
 		BeforeEach(func() {
-			tfr = fxfer.NewTransferer(GinkgoLogr, fxfer.WithRetryConfig(fxfer.RetryConfig{
+			tfr = fxfer.NewTransfer(GinkgoLogr, fxfer.WithRetryConfig(fxfer.RetryConfig{
 				MaxRetryAttempts: 2,
 				InitialDelay:     50 * time.Millisecond,
 				MaxDelay:         100 * time.Millisecond,
@@ -373,17 +373,17 @@ var _ = Describe("transferer", func() {
 			gomock.InOrder(
 				mockSrcStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					mockClient,
 				).Return(srcInfo, nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(destInfo, nil),
 				mockSrcStorage.EXPECT().GetFileFromOffset(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					int64(700),
 					mockClient,
 				).DoAndReturn(func(
@@ -396,19 +396,19 @@ var _ = Describe("transferer", func() {
 				}),
 				mockDestStorage.EXPECT().TransferFileChunk(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					gomock.Any(),
 					int64(700),
 					mockClient,
 				).Return(int64(0), gofakeit.Error()),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(xferfile.Info{}, gofakeit.Error()),
 			)
 
-			Expect(tfr.Transfer(ctx, srcCommand, destCommand, callback)).To(HaveOccurred())
+			Expect(tfr.Transfer(ctx, srcConfig, destConfig, callback)).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
 
 		It("should retry the transfer when it fails while finalizing", func(ctx context.Context) {
@@ -431,17 +431,17 @@ var _ = Describe("transferer", func() {
 			gomock.InOrder(
 				mockSrcStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					mockClient,
 				).Return(srcInfo, nil),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(destInfo, nil),
 				mockSrcStorage.EXPECT().GetFileFromOffset(
 					gomock.AssignableToTypeOf(ctx),
-					srcCommand.FilePath,
+					srcConfig.FilePath,
 					int64(700),
 					mockClient,
 				).DoAndReturn(func(
@@ -454,24 +454,24 @@ var _ = Describe("transferer", func() {
 				}),
 				mockDestStorage.EXPECT().TransferFileChunk(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					gomock.Any(),
 					int64(700),
 					mockClient,
 				).Return(int64(300), nil),
 				mockDestStorage.EXPECT().FinalizeTransfer(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(storage.ErrFileOrObjectCannotFinalize),
 				mockDestStorage.EXPECT().GetFileInfo(
 					gomock.AssignableToTypeOf(ctx),
-					destCommand.FilePath,
+					destConfig.FilePath,
 					mockClient,
 				).Return(xferfile.Info{}, gofakeit.Error()),
 			)
 
-			Expect(tfr.Transfer(ctx, srcCommand, destCommand, callback)).To(HaveOccurred())
+			Expect(tfr.Transfer(ctx, srcConfig, destConfig, callback)).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
 	})
 })

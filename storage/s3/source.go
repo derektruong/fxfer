@@ -22,7 +22,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-const meterNamePrefix = "transferer/storage/s3"
+const meterNamePrefix = "transfer/storage/s3"
 
 type s3Client struct {
 	bucket string
