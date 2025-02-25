@@ -199,7 +199,7 @@ type Destination struct {
 
 	// MaxBufferedParts is the number of additional parts that can be received from
 	// the client and stored on disk while a part is being uploaded to S3. This
-	// can help improve throughput by not blocking the client while transferer is
+	// can help improve throughput by not blocking the client while transfer is
 	// communicating with the S3 API, which can have unpredictable latency.
 	MaxBufferedParts int64
 
@@ -1085,7 +1085,7 @@ func (u *s3Upload) downloadIncompletePartForUpload(ctx context.Context) (*os.Fil
 	}
 	defer incompleteUploadObject.Body.Close()
 
-	partFile, err := os.CreateTemp(u.temporaryDirectory, "file-transferer-s3-tmp-")
+	partFile, err := os.CreateTemp(u.temporaryDirectory, "file-transfer-s3-tmp-")
 	if err != nil {
 		return nil, err
 	}

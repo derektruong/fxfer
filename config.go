@@ -15,9 +15,9 @@ func init() {
 	validate = validator.New(validator.WithRequiredStructEnabled())
 }
 
-// SourceCommand represents the source file to transfer.
+// SourceConfig represents the source file to transfer.
 // It contains the file path, storage, and client.
-type SourceCommand struct {
+type SourceConfig struct {
 	// FilePath is the path of the source file
 	FilePath string `json:"filePath" yaml:"filePath" validate:"required"`
 	// Storage: see storage.Source
@@ -26,9 +26,9 @@ type SourceCommand struct {
 	Client protoc.Client `json:"client" yaml:"client" validate:"required"`
 }
 
-// DestinationCommand represents the destination file to transfer.
+// DestinationConfig represents the destination file to transfer.
 // It contains the file path, storage, and client.
-type DestinationCommand struct {
+type DestinationConfig struct {
 	// FilePath is the path of the destination file
 	FilePath string `json:"filePath" yaml:"filePath" validate:"required"`
 	// Storage: see storage.Destination
@@ -37,10 +37,10 @@ type DestinationCommand struct {
 	Client protoc.Client `json:"client" yaml:"client" validate:"required"`
 }
 
-func (src SourceCommand) Validate(ctx context.Context) error {
+func (src SourceConfig) Validate(ctx context.Context) error {
 	return validate.StructCtx(ctx, src)
 }
 
-func (dest DestinationCommand) Validate(ctx context.Context) error {
+func (dest DestinationConfig) Validate(ctx context.Context) error {
 	return validate.StructCtx(ctx, dest)
 }

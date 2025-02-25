@@ -76,7 +76,7 @@ outerLoop:
 func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 	if spp.tmpDir != TempDirUseMemory {
 		// create a temporary file to store the part
-		file, err := os.CreateTemp(spp.tmpDir, "file-transferer-s3-tmp-")
+		file, err := os.CreateTemp(spp.tmpDir, "file-transfer-s3-tmp-")
 		if err != nil {
 			return fileChunk{}, false, err
 		}

@@ -14,25 +14,25 @@ import (
 
 var errRetryable = errors.New("retryable error")
 
-// Transferer is the interface for handling file transfers.
-type Transferer interface {
+// Transfer is the interface for handling file transfers.
+type Transfer interface {
 	// Transfer handles the transfer of a file from a source to a destination,
 	// ensuring validation, sanitization, and resumption of incomplete transfers.
 	// It supports progress updates via a callback function.
 	//
 	// Parameters:
 	//   - ctx: the context for managing the transfer lifecycle.
-	//   - src: see SourceCommand for more details.
-	//   - dest: see DestinationCommand for more details.
+	//   - src: see SourceConfig for more details.
+	//   - dest: see DestinationConfig for more details.
 	//   - cb: the callback function to handle progress updates (see ProgressUpdatedCallback).
 	//
 	// Returns:
 	//   - err: if any step in the transfer process fails, nil otherwise
-	Transfer(ctx context.Context, src SourceCommand, dest DestinationCommand, cb ProgressUpdatedCallback) (err error)
+	Transfer(ctx context.Context, src SourceConfig, dest DestinationConfig, cb ProgressUpdatedCallback) (err error)
 }
 
-// transferer handles file transfers with configurations
-type transferer struct {
+// transfer handles file transfers with configurations
+type transfer struct {
 	logger logr.Logger
 
 	// options
@@ -43,13 +43,13 @@ type transferer struct {
 	retryConfig             RetryConfig
 }
 
-// NewTransferer creates a new transferer with the optional TransferOption(s).
-func NewTransferer(
+// NewTransfer creates a new transfer with the optional TransferOption(s).
+func NewTransfer(
 	logger logr.Logger,
 	options ...TransferOption,
-) (t Transferer) {
-	tr := &transferer{
-		logger:                  logger.WithName("transferer"),
+) (t Transfer) {
+	tr := &transfer{
+		logger:                  logger.WithName("transfer"),
 		fileRule:                new(fileRule),
 		refreshProgressInterval: defaultRefreshInterval,
 		checksumAlgorithm:       NoneChecksumAlgorithm,
@@ -65,10 +65,10 @@ func NewTransferer(
 	return tr
 }
 
-func (t *transferer) Transfer(
+func (t *transfer) Transfer(
 	ctx context.Context,
-	src SourceCommand,
-	dest DestinationCommand,
+	src SourceConfig,
+	dest DestinationConfig,
 	cb ProgressUpdatedCallback,
 ) (err error) {
 	if err = src.Validate(ctx); err != nil {
@@ -126,11 +126,11 @@ func (t *transferer) Transfer(
 	return
 }
 
-func (t *transferer) processResumableTransfer(
+func (t *transfer) processResumableTransfer(
 	ctx context.Context,
 	srcInfo xferfile.Info,
-	src SourceCommand,
-	dest DestinationCommand,
+	src SourceConfig,
+	dest DestinationConfig,
 	cb ProgressUpdatedCallback,
 ) (err error) {
 	var destInfo xferfile.Info
@@ -235,9 +235,9 @@ func (t *transferer) processResumableTransfer(
 }
 
 // getOrCreateDestinationFile gets the destination file info or creates it if it does not exist.
-func (t *transferer) getOrCreateDestinationFile(
+func (t *transfer) getOrCreateDestinationFile(
 	ctx context.Context,
-	dest DestinationCommand,
+	dest DestinationConfig,
 	srcInfo xferfile.Info,
 ) (destInfo xferfile.Info, err error) {
 	if destInfo, err = dest.Storage.GetFileInfo(ctx, dest.FilePath, dest.Client); err != nil {
@@ -262,9 +262,9 @@ func (t *transferer) getOrCreateDestinationFile(
 }
 
 // verifyFileChanges verifies if the source file has been modified and re-creates the destination file.
-func (t *transferer) verifyFileChanges(
+func (t *transfer) verifyFileChanges(
 	ctx context.Context,
-	dest DestinationCommand,
+	dest DestinationConfig,
 	srcInfo xferfile.Info,
 	destInfo xferfile.Info,
 ) (updatedInfo xferfile.Info, err error) {

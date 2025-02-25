@@ -11,12 +11,12 @@ import (
 	fxfer "github.com/derektruong/fxfer"
 	"github.com/derektruong/fxfer/examples"
 	"github.com/derektruong/fxfer/protoc"
-	s3protoc "github.com/derektruong/fxfer/protoc/s3"
 	localio "github.com/derektruong/fxfer/protoc/local"
+	s3protoc "github.com/derektruong/fxfer/protoc/s3"
 	"github.com/derektruong/fxfer/storage"
+	"github.com/derektruong/fxfer/storage/local"
 	"github.com/derektruong/fxfer/storage/s3"
 	"github.com/go-logr/logr"
-	"github.com/derektruong/fxfer/storage/local"
 )
 
 func main() {
@@ -76,16 +76,16 @@ func main() {
 	}
 	defer destStorage.Close()
 
-	transferer := fxfer.NewTransferer(logger, fxfer.WithMaxFileSize(5<<40))
+	transfer := fxfer.NewTransfer(logger, fxfer.WithMaxFileSize(5<<40))
 
-	if err = transferer.Transfer(
+	if err = transfer.Transfer(
 		ctx,
-		fxfer.SourceCommand{
+		fxfer.SourceConfig{
 			FilePath: srcPath,
 			Storage:  srcStorage,
 			Client:   srcClient,
 		},
-		fxfer.DestinationCommand{
+		fxfer.DestinationConfig{
 			FilePath: destPath,
 			Storage:  destStorage,
 			Client:   destClient,

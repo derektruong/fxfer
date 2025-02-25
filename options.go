@@ -14,7 +14,7 @@ const (
 	defaultMaxDelay         = 30 * time.Second
 )
 
-type TransferOption func(*transferer)
+type TransferOption func(*transfer)
 
 // WithMaxFileSize sets the maximum file size allowed for transfer.
 // Default is 0 (no limit).
@@ -22,7 +22,7 @@ func WithMaxFileSize(size int64) TransferOption {
 	if size <= 0 {
 		size = defaultMaxFileSize
 	}
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.fileRule.MaxFileSize = size
 	}
 }
@@ -33,7 +33,7 @@ func WithMinFileSize(size int64) TransferOption {
 	if size <= 0 {
 		size = defaultMinFileSize
 	}
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.fileRule.MinFileSize = size
 	}
 }
@@ -41,7 +41,7 @@ func WithMinFileSize(size int64) TransferOption {
 // WithExtensionWhitelist sets the list of allowed file extensions for transfer.
 // Default is empty (no restriction).
 func WithExtensionWhitelist(extensions ...string) TransferOption {
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.fileRule.ExtensionWhitelist = extensions
 	}
 }
@@ -49,7 +49,7 @@ func WithExtensionWhitelist(extensions ...string) TransferOption {
 // WithExtensionBlacklist sets the list of blocked file extensions for transfer.
 // Default is empty (no restriction).
 func WithExtensionBlacklist(extensions ...string) TransferOption {
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.fileRule.ExtensionBlacklist = extensions
 	}
 }
@@ -57,7 +57,7 @@ func WithExtensionBlacklist(extensions ...string) TransferOption {
 // WithModifiedAfter sets the minimum modified time required for transfer.
 // Default is zero (no restriction).
 func WithModifiedAfter(modTime time.Time) TransferOption {
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.fileRule.ModifiedAfter = modTime
 	}
 }
@@ -65,7 +65,7 @@ func WithModifiedAfter(modTime time.Time) TransferOption {
 // WithModifiedBefore sets the maximum modified time required for transfer.
 // Default is zero (no restriction).
 func WithModifiedBefore(modTime time.Time) TransferOption {
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.fileRule.ModifiedBefore = modTime
 	}
 }
@@ -73,7 +73,7 @@ func WithModifiedBefore(modTime time.Time) TransferOption {
 // WithFileNamePattern sets the regular expression pattern for file names.
 // Default is nil (no restriction).
 func WithFileNamePattern(pattern *regexp.Regexp) TransferOption {
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.fileRule.FileNamePattern = pattern
 	}
 }
@@ -84,7 +84,7 @@ func WithProgressRefreshInterval(interval time.Duration) TransferOption {
 	if interval <= 0 {
 		interval = defaultRefreshInterval
 	}
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.refreshProgressInterval = interval
 	}
 }
@@ -106,26 +106,26 @@ const (
 	ChecksumAlgorithmSHA256
 )
 
-// WithChecksumAlgorithm sets the checksum algorithm for the transferer.
+// WithChecksumAlgorithm sets the checksum algorithm for the transfer.
 // It is recommended to use the default checksum algorithm (CRC32) unless
 // there is a specific requirement for a different algorithm.
 func WithChecksumAlgorithm(algorithm ChecksumAlgorithm) TransferOption {
 	// TODO: implement checksum algorithm
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.checksumAlgorithm = algorithm
 	}
 }
 
-// WithDisabledRetry disables the retry mechanism for the transferer.
-// Default is false (enabled). If disabled, the transferer will not
+// WithDisabledRetry disables the retry mechanism for the transfer.
+// Default is false (enabled). If disabled, the transfer will not
 // retry failed transfers, regardless of setting WithRetryConfig option.
 func WithDisabledRetry() TransferOption {
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.disabledRetry = true
 	}
 }
 
-// RetryConfig defines the retry configuration for the transferer.
+// RetryConfig defines the retry configuration for the transfer.
 type RetryConfig struct {
 	// MaxRetryAttempts is the maximum number of retry attempts, default = 5.
 	MaxRetryAttempts int
@@ -135,7 +135,7 @@ type RetryConfig struct {
 	MaxDelay time.Duration
 }
 
-// WithRetryConfig sets the retry configuration for the transferer.
+// WithRetryConfig sets the retry configuration for the transfer.
 // Support partial configuration, default values will be used if not set.
 func WithRetryConfig(config RetryConfig) TransferOption {
 	if config.MaxRetryAttempts <= 0 {
@@ -147,7 +147,7 @@ func WithRetryConfig(config RetryConfig) TransferOption {
 	if config.MaxDelay <= 0 {
 		config.MaxDelay = defaultMaxDelay
 	}
-	return func(t *transferer) {
+	return func(t *transfer) {
 		t.retryConfig = config
 	}
 }
