@@ -7,7 +7,6 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Roadmap](#roadmap)
-- [Acknowledgements](#acknowledgements)
 
 ## Motivation
 
@@ -128,12 +127,3 @@ storage type.
 
 If you have [Taskfile](https://taskfile.dev) installed, you can run the examples very easily.
 See [./Taskfile.yaml](./Taskfile.yaml) for more details.
-
-## Acknowledgements
-
-This project builds upon several excellent open-source libraries:
-
-- [logr](https://github.com/go-logr/logr) - Provides the logging interface that enables easy integration with various logging backends (slog, zap, etc.)
-- [ftp](https://github.com/jlaffaye/ftp) and [sftp](github.com/pkg/sftp) - Power our FTP and SFTP protocol support
-- [aws-sdk-go-v2](github.com/aws/aws-sdk-go-v2) - Handles S3 operations with AWS's official SDK
-- [tusd](github.com/tus/tusd) - Inspired our resumable transfer implementation for S3 storage.
