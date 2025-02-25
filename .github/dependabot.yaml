@@ -9,4 +9,3 @@ updates:
       - "derektruong"
     labels:
       - "dependencies"
-      - "go"
