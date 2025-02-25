@@ -70,6 +70,31 @@ var _ = Describe("TransferReader", func() {
 		}, NodeTimeout(10*time.Second))
 	})
 
+	Describe("TransferredSize", func() {
+		It("should return the transferred size", func(ctx context.Context) {
+			Expect(transferReader.TransferredSize()).To(Equal(int64(0)))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return the transferred size after reading data", func(ctx context.Context) {
+			data := make([]byte, 5)
+			transferReader.Read(data)
+			Expect(transferReader.TransferredSize()).To(Equal(int64(5)))
+		}, NodeTimeout(10*time.Second))
+	})
+
+	Describe("SetLimiter", func() {
+		It("should set the rate limit correctly", func(ctx context.Context) {
+			transferReader.SetRateLimit(1)
+			data := make([]byte, 3)
+
+			since := time.Now()
+			n, err := transferReader.Read(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(3))
+			Expect(time.Since(since)).To(BeNumerically("~", 3*time.Second, 1*time.Second))
+		}, NodeTimeout(10*time.Second))
+	})
+
 	Describe("Close", func() {
 		It("should close the underlying reader if it implements io.Closer", func(ctx context.Context) {
 			closableProgress := iometer.NewTransferReader(mockReadCloser, &transferredSize)

@@ -5,7 +5,7 @@
 	<a href="https://goreportcard.com/report/github.com/derektruong/fxfer"><img src="https://goreportcard.com/badge/github.com/derektruong/fxfer" alt="Go Report Card"></a>
 	<a href="https://github.com/derektruong/fxfer/releases"><img src="https://img.shields.io/github/v/release/derektruong/fxfer" alt="GitHub release"></a>
 	<a href="https://github.com/derektruong/fxfer/blob/main/LICENSE"><img src="https://img.shields.io/github/license/derektruong/fxfer" alt="License"></a>
-	<a href="https://codecov.io/gh/derektruong/fxfer"><img src="https://codecov.io/gh/derektruong/fxfer/branch/main/graph/badge.svg" alt="Code Coverage"></a>
+	<a href="https://codecov.io/gh/derektruong/fxfer" ><img src="https://codecov.io/gh/derektruong/fxfer/graph/badge.svg?token=N1HI35SHUH" alt="Codecov"></a>
 </p>
 
 ---
@@ -44,7 +44,6 @@ Next include `fxfer` in your application.
 ```bash
 import "github.com/derektruong/fxfer"
 ```
-
 
 ## Concepts
 
