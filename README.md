@@ -1,7 +1,5 @@
 # fxfer
 
-## Table of Contents
-
 - [Motivation](#motivation)
 - [Quick Start](#quick-start)
 - [Concepts](#concepts)
@@ -13,7 +11,7 @@
 
 ## Motivation
 
-Imagine managing files and objects stored across various systems—whether it's a NAS, your local machine, or a cloud
+Imagine managing files and objects stored across various systems, whether it's a NAS, your local machine, or a cloud
 storage service like S3, GCS, or Azure Blob Storage. We refer to these as "source storage." Now, suppose you need to
 seamlessly transfer these files to another storage system, which we call "destination storage", regardless of the
 unreliability of the network or the large size of the files. How would you go about doing this?
@@ -70,7 +68,7 @@ metadata, additional information. This file SHOULD be put on _Destination Storag
 
 ### Support storages
 
-- [ ] Support local filesystem storage.
+- [x] Support local filesystem storage.
 - [x] Support S3 storage, S3-compatible storage (e.g., MinIO, Ceph, Storj, ...).
 - [ ] Support FTP, SFTP server storage.
 - [ ] Support Azure Blob Storage.
