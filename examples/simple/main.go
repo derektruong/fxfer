@@ -12,9 +12,11 @@ import (
 	"github.com/derektruong/fxfer/examples"
 	"github.com/derektruong/fxfer/protoc"
 	s3protoc "github.com/derektruong/fxfer/protoc/s3"
+	localio "github.com/derektruong/fxfer/protoc/local"
 	"github.com/derektruong/fxfer/storage"
 	"github.com/derektruong/fxfer/storage/s3"
 	"github.com/go-logr/logr"
+	"github.com/derektruong/fxfer/storage/local"
 )
 
 func main() {
@@ -42,6 +44,13 @@ func main() {
 
 	// setup source
 	switch src {
+	case "local":
+		srcClient = localio.NewIO()
+		srcStorage, err = local.NewSource(logger)
+		if err != nil {
+			logger.Error(err, "failed to setup local source storage")
+			return
+		}
 	case "s3":
 		srcClient = s3protoc.NewClient(s3Endpoint, s3Bucket, s3Region, s3AccessKey, s3SecretKey)
 		srcStorage = s3.NewSource(logger)
@@ -52,6 +61,13 @@ func main() {
 
 	// setup destination
 	switch dest {
+	case "local":
+		destClient = localio.NewIO()
+		destStorage, err = local.NewDestination(logger)
+		if err != nil {
+			logger.Error(err, "failed to setup local source storage")
+			return
+		}
 	case "s3":
 		destClient = s3protoc.NewClient(s3Endpoint, s3Bucket, s3Region, s3AccessKey, s3SecretKey)
 		destStorage = s3.NewDestination(logger)
@@ -76,7 +92,7 @@ func main() {
 		},
 		examples.HandleProgressUpdated(logger),
 	); err != nil {
-		logger.Error(err, "failed to transfer from local to SFTP")
+		logger.Error(err, "failed to transfer", "src", src, "dest", dest)
 		return
 	}
 }
