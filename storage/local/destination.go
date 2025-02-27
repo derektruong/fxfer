@@ -3,38 +3,27 @@ package local
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"time"
 
 	"github.com/derektruong/fxfer/internal/fileutils"
-	"github.com/derektruong/fxfer/internal/iometer"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/protoc"
 	"github.com/derektruong/fxfer/protoc/local"
 	"github.com/derektruong/fxfer/storage"
 	"github.com/go-logr/logr"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric"
 )
 
 var defaultFilePerm = os.FileMode(0664)
 
 type Destination struct {
 	logger logr.Logger
-
-	// bytesTransferred are used to store the destination bytes transferred
-	bytesTransferred *int64
 }
 
 func NewDestination(logger logr.Logger) (s *Destination, err error) {
 	s = &Destination{
-		logger:           logger.WithName("local.destination"),
-		bytesTransferred: new(int64),
-	}
-	if err = s.registerMeterCallback(); err != nil {
-		return
+		logger: logger.WithName("local.destination"),
 	}
 	return
 }
@@ -146,9 +135,7 @@ func (d *Destination) TransferFileChunk(
 		return
 	}
 	defer file.Close()
-	transferReader := iometer.NewTransferReader(reader, d.bytesTransferred)
-	defer transferReader.Close()
-	if n, err = io.Copy(file, transferReader); err != nil {
+	if n, err = io.Copy(file, reader); err != nil {
 		return
 	}
 	return
@@ -212,22 +199,4 @@ func (d *Destination) writeInfo(filePath string, info xferfile.Info) (err error)
 		return
 	}
 	return os.WriteFile(infoPath, infoData, defaultFilePerm)
-}
-
-func (d *Destination) registerMeterCallback() (err error) {
-	meter := otel.GetMeterProvider().Meter(fmt.Sprintf("%s/destination", meterNamePrefix))
-	var totalBytesTransferred metric.Int64ObservableCounter
-	if totalBytesTransferred, err = meter.Int64ObservableCounter("bytes_transferred"); err != nil {
-		return
-	}
-
-	// setup observer
-	_, err = meter.RegisterCallback(
-		func(ctx context.Context, o metric.Observer) (err error) {
-			o.ObserveInt64(totalBytesTransferred, *d.bytesTransferred)
-			return
-		},
-		totalBytesTransferred,
-	)
-	return
 }

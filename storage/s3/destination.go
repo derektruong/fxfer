@@ -80,20 +80,16 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aws/smithy-go"
 	"github.com/derektruong/fxfer/internal/fileutils"
-	"github.com/derektruong/fxfer/internal/iometer"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/protoc"
 	"github.com/derektruong/fxfer/protoc/s3"
 	"github.com/derektruong/fxfer/storage"
 	"github.com/go-logr/logr"
 	"github.com/samber/lo"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 
@@ -221,13 +217,6 @@ type Destination struct {
 	// connsMu and conns are used to protect the connection pool for s3 connections
 	connsMu sync.Mutex
 	conns   map[string]*s3Client
-
-	// bytesTransferredMu and bytesTransferred are used to store the destination bytes uploaded
-	bytesTransferredMu sync.RWMutex
-	bytesTransferred   map[string]*int64
-
-	// totalHosts is used to store the total number of s3 hosts connected
-	totalHosts int32
 }
 
 // NewDestination constructs a new storage using the supplied bucket and service object.
@@ -242,7 +231,6 @@ func NewDestination(logger logr.Logger) (d *Destination) {
 		TemporaryDirectory: "",
 		logger:             logger.WithName("s3.destination"),
 		conns:              make(map[string]*s3Client),
-		bytesTransferred:   make(map[string]*int64),
 	}
 	return
 }
@@ -363,17 +351,6 @@ func (d *Destination) TransferFileChunk(
 		return
 	}
 	incompletePartSize := upload.incompletePartSize
-
-	// wrap the src reader with transfer reader and optimal io speed
-	connID := cli.GetConnectionID()
-	transferred := d.getBytesTransferred(connID)
-	if transferred == nil {
-		d.setBytesTransferred(connID)
-		transferred = d.getBytesTransferred(connID)
-	}
-	transferReader := iometer.NewTransferReader(src, transferred)
-	transferReader.SetRateLimit(upload.calcOptimalSpeed())
-	src = io.Reader(transferReader)
 
 	// get the total size of the current upload, number of parts to generate next number and whether
 	// an incomplete part exists
@@ -555,7 +532,7 @@ func (d *Destination) DeleteFile(ctx context.Context, filePath string, protocol 
 	wg.Wait()
 
 	if len(errs) > 0 {
-		return newMultiError(errs)
+		return errors.Join(errs...)
 	}
 
 	return nil
@@ -641,66 +618,8 @@ func (d *Destination) checkAndSetClient(protocol protoc.Client) (conn *s3Client,
 			client: client,
 		}
 		d.conns[connID] = conn
-
-		// setup metric meter
-		if err = d.setupMetricMeter(connID, cred); err != nil {
-			return
-		}
 	}
 	return
-}
-
-func (d *Destination) setupMetricMeter(connID string, credential s3.Client) (err error) {
-	// setup meter
-	meter := otel.GetMeterProvider().Meter(
-		fmt.Sprintf("%s/destination/%s", meterNamePrefix, credential.GetURI()),
-	)
-
-	// setup bytes transferred
-	d.bytesTransferredMu.Lock()
-	defer d.bytesTransferredMu.Unlock()
-	d.bytesTransferred[connID] = new(int64)
-
-	// setup total hosts
-	atomic.AddInt32(&d.totalHosts, 1)
-
-	var totalBytesTransferred metric.Int64ObservableCounter
-	if totalBytesTransferred, err = meter.Int64ObservableCounter("bytes_transferred"); err != nil {
-		return
-	}
-
-	var totalHosts metric.Int64ObservableGauge
-	if totalHosts, err = meter.Int64ObservableGauge("total_connected_host"); err != nil {
-		return
-	}
-
-	// setup observer
-	_, err = meter.RegisterCallback(
-		func(ctx context.Context, o metric.Observer) (err error) {
-			o.ObserveInt64(totalHosts, int64(d.totalHosts))
-			o.ObserveInt64(totalBytesTransferred, *d.bytesTransferred[connID])
-			return
-		},
-		totalHosts,
-		totalBytesTransferred,
-	)
-	return
-}
-
-func (d *Destination) getBytesTransferred(connID string) (transferred *int64) {
-	d.bytesTransferredMu.RLock()
-	defer d.bytesTransferredMu.RUnlock()
-	var exists bool
-	if transferred, exists = d.bytesTransferred[connID]; !exists {
-		return nil
-	}
-	return
-}
-
-func (d *Destination) setBytesTransferred(connID string) {
-	d.bytesTransferredMu.Lock()
-	defer d.bytesTransferredMu.Unlock()
-	d.bytesTransferred[connID] = new(int64)
 }
 
 func (u *s3Upload) writeInfo(ctx context.Context, info xferfile.Info) (err error) {
