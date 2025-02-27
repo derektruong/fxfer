@@ -6,23 +6,17 @@ import (
 	"io"
 	"strconv"
 	"sync"
-	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/derektruong/fxfer/internal/fileutils"
-	"github.com/derektruong/fxfer/internal/iometer"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/protoc"
 	"github.com/derektruong/fxfer/protoc/s3"
 	"github.com/derektruong/fxfer/storage"
 	"github.com/go-logr/logr"
 	"github.com/samber/lo"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric"
 )
-
-const meterNamePrefix = "transfer/storage/s3"
 
 type s3Client struct {
 	bucket string
@@ -34,27 +28,17 @@ type Source struct {
 
 	connsMu sync.Mutex
 	conns   map[string]*s3Client
-
-	// bytesTransferredMu and bytesTransferred are used to calculate the total
-	// bytes downloaded
-	bytesTransferredMu sync.RWMutex
-	bytesTransferred   map[string]*int64
-
-	// totalHosts is used to store the total number of s3 hosts connected
-	totalHosts int32
 }
 
 func NewSource(logger logr.Logger) (s *Source) {
 	s = &Source{
-		logger:           logger.WithName("s3.source"),
-		conns:            make(map[string]*s3Client),
-		bytesTransferred: make(map[string]*int64),
+		logger: logger.WithName("s3.source"),
+		conns:  make(map[string]*s3Client),
 	}
 	return
 }
 
 func (s *Source) Close() {
-	atomic.AddInt32(&s.totalHosts, -int32(len(s.conns)))
 	s.logger.Info("closed s3 source")
 }
 
@@ -107,13 +91,7 @@ func (s *Source) GetFileFromOffset(
 	}); err != nil {
 		return
 	}
-	connID := cli.GetConnectionID()
-	transferred := s.getBytesTransferred(connID)
-	if transferred == nil {
-		s.setBytesTransferred(connID)
-		transferred = s.getBytesTransferred(connID)
-	}
-	reader = iometer.NewTransferReader(objOutput.Body, transferred)
+	reader = objOutput.Body
 	return
 }
 
@@ -137,57 +115,4 @@ func (s *Source) checkAndSetClient(protocol protoc.Client) (conn *s3Client, err 
 		s.conns[connID] = conn
 	}
 	return
-}
-
-func (s *Source) setupMetricMeter(connID string, credential s3.Client) (err error) {
-	// setup meter
-	meter := otel.GetMeterProvider().Meter(
-		fmt.Sprintf("%s/source/%s", meterNamePrefix, credential.GetURI()),
-	)
-
-	// setup bytes transferred
-	s.bytesTransferredMu.Lock()
-	defer s.bytesTransferredMu.Unlock()
-	s.bytesTransferred[connID] = new(int64)
-
-	// setup total hosts
-	atomic.AddInt32(&s.totalHosts, 1)
-
-	var totalBytesTransferred metric.Int64ObservableCounter
-	if totalBytesTransferred, err = meter.Int64ObservableCounter("bytes_transferred"); err != nil {
-		return
-	}
-
-	var totalHosts metric.Int64ObservableGauge
-	if totalHosts, err = meter.Int64ObservableGauge("total_connected_host"); err != nil {
-		return
-	}
-
-	// setup observer
-	_, err = meter.RegisterCallback(
-		func(ctx context.Context, o metric.Observer) (err error) {
-			o.ObserveInt64(totalHosts, int64(s.totalHosts))
-			o.ObserveInt64(totalBytesTransferred, *s.bytesTransferred[connID])
-			return
-		},
-		totalHosts,
-		totalBytesTransferred,
-	)
-	return
-}
-
-func (s *Source) getBytesTransferred(connID string) (transferred *int64) {
-	s.bytesTransferredMu.RLock()
-	defer s.bytesTransferredMu.RUnlock()
-	var exists bool
-	if transferred, exists = s.bytesTransferred[connID]; !exists {
-		return nil
-	}
-	return
-}
-
-func (s *Source) setBytesTransferred(connID string) {
-	s.bytesTransferredMu.Lock()
-	defer s.bytesTransferredMu.Unlock()
-	s.bytesTransferred[connID] = new(int64)
 }

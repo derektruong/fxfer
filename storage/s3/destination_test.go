@@ -470,7 +470,7 @@ var _ = Describe("Destination", func() {
 			})
 
 			connID := uuid.NewString()
-			mockClient.EXPECT().GetConnectionID().Return(connID).Times(2)
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
 			mockClient.EXPECT().GetS3API().Return(mockS3API)
 			mockClient.EXPECT().GetCredential().
 				Return(*s3ProtocClient)
@@ -583,7 +583,7 @@ var _ = Describe("Destination", func() {
 
 		It("write chunk should write incomplete part because too small", func(ctx context.Context) {
 			connID := uuid.NewString()
-			mockClient.EXPECT().GetConnectionID().Return(connID).Times(2)
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
 			mockClient.EXPECT().GetS3API().Return(mockS3API)
 			mockClient.EXPECT().GetCredential().Return(*s3ProtocClient)
 			mockS3API.EXPECT().GetObject(ctx, gomock.Any()).
@@ -661,7 +661,7 @@ var _ = Describe("Destination", func() {
 			})
 
 			connID := uuid.NewString()
-			mockClient.EXPECT().GetConnectionID().Return(connID).Times(2)
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
 			mockClient.EXPECT().GetS3API().Return(mockS3API)
 			mockClient.EXPECT().GetCredential().
 				Return(*s3ProtocClient)
@@ -762,7 +762,7 @@ var _ = Describe("Destination", func() {
 			})
 
 			connID := uuid.NewString()
-			mockClient.EXPECT().GetConnectionID().Return(connID).Times(2)
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
 			mockClient.EXPECT().GetS3API().Return(mockS3API)
 			mockClient.EXPECT().GetCredential().
 				Return(*s3ProtocClient)
@@ -855,7 +855,7 @@ var _ = Describe("Destination", func() {
 			})
 
 			connID := uuid.NewString()
-			mockClient.EXPECT().GetConnectionID().Return(connID).Times(2)
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
 			mockClient.EXPECT().GetS3API().Return(mockS3API)
 			mockClient.EXPECT().GetCredential().
 				Return(*s3ProtocClient)
@@ -960,7 +960,7 @@ var _ = Describe("Destination", func() {
 
 			// The usual S3 calls for retrieving the upload
 			connID := uuid.NewString()
-			mockClient.EXPECT().GetConnectionID().Return(connID).Times(2)
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
 			mockClient.EXPECT().GetS3API().Return(s3API)
 			mockClient.EXPECT().GetCredential().
 				Return(*s3ProtocClient)

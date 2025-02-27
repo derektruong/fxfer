@@ -2,37 +2,24 @@ package local
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 
 	"github.com/derektruong/fxfer/internal/fileutils"
-	"github.com/derektruong/fxfer/internal/iometer"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/protoc"
 	"github.com/derektruong/fxfer/protoc/local"
 	"github.com/derektruong/fxfer/storage"
 	"github.com/go-logr/logr"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric"
 )
-
-const meterNamePrefix = "transfer/storage/local"
 
 type Source struct {
 	logger logr.Logger
-
-	// bytesTransferred are used to store the destination bytes transferred
-	bytesTransferred *int64
 }
 
 func NewSource(logger logr.Logger) (s *Source, err error) {
 	s = &Source{
-		logger:           logger.WithName("local.source"),
-		bytesTransferred: new(int64),
-	}
-	if err = s.registerMeterCallback(); err != nil {
-		return
+		logger: logger.WithName("local.source"),
 	}
 	return
 }
@@ -81,28 +68,10 @@ func (s *Source) GetFileFromOffset(
 	if _, err = file.Seek(offset, io.SeekStart); err != nil {
 		return
 	}
-	reader = iometer.NewTransferReader(file, s.bytesTransferred)
+	reader = file
 	return
 }
 
 func (s *Source) Close() {
 	s.logger.Info("closed local source")
-}
-
-func (s *Source) registerMeterCallback() (err error) {
-	meter := otel.GetMeterProvider().Meter(fmt.Sprintf("%s/source", meterNamePrefix))
-	var totalBytesTransferred metric.Int64ObservableCounter
-	if totalBytesTransferred, err = meter.Int64ObservableCounter("bytes_transferred"); err != nil {
-		return
-	}
-
-	// setup observer
-	_, err = meter.RegisterCallback(
-		func(ctx context.Context, o metric.Observer) (err error) {
-			o.ObserveInt64(totalBytesTransferred, *s.bytesTransferred)
-			return
-		},
-		totalBytesTransferred,
-	)
-	return
 }
