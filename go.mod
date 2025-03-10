@@ -7,7 +7,7 @@ require (
 	github.com/aws/smithy-go/metrics/smithyotelmetrics v1.0.4
 	github.com/go-logr/logr v1.4.2
 	github.com/go-playground/validator/v10 v10.25.0
-	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/ginkgo/v2 v2.23.0
 	github.com/onsi/gomega v1.36.2
 	github.com/samber/lo v1.49.1
 	go.uber.org/mock v0.5.0
