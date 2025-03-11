@@ -3,7 +3,7 @@ module github.com/derektruong/fxfer
 go 1.24.0
 
 require (
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.1
 	github.com/aws/smithy-go/metrics/smithyotelmetrics v1.0.4
 	github.com/go-logr/logr v1.4.2
 	github.com/go-playground/validator/v10 v10.25.0
