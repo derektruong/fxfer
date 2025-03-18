@@ -249,10 +249,7 @@ func (d *Destination) GetFileInfo(
 		return
 	}
 
-	var upload *s3Upload
-	if upload, err = d.getUpload(filePath, s3Cli.bucket, s3Cli.client); err != nil {
-		return
-	}
+	upload := d.getUpload(filePath, s3Cli.bucket, s3Cli.client)
 
 	// fetch the info object from S3
 	if err = upload.setInternalInfo(ctx); err != nil {
@@ -296,7 +293,7 @@ func (d *Destination) CreateFile(
 		Key:    &path,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to create multipart upload:\n%s", err)
+		return fmt.Errorf("unable to create multipart upload: %w", err)
 	}
 
 	// store the multipart upload ID in the metadata
@@ -323,7 +320,7 @@ func (d *Destination) CreateFile(
 		temporaryDirectory: d.TemporaryDirectory,
 	}
 	if err = upload.writeInfo(ctx, info); err != nil {
-		return fmt.Errorf("unable to create info file:\n%s", err)
+		return fmt.Errorf("unable to create info file: %w", err)
 	}
 	return
 }
@@ -341,10 +338,7 @@ func (d *Destination) TransferFileChunk(
 	}
 
 	// get the upload object
-	var upload *s3Upload
-	if upload, err = d.getUpload(filePath, s3Cli.bucket, s3Cli.client); err != nil {
-		return
-	}
+	upload := d.getUpload(filePath, s3Cli.bucket, s3Cli.client)
 
 	// set the info upload if it is not set yet
 	if err = upload.setInternalInfo(ctx); err != nil {
@@ -395,10 +389,7 @@ func (d *Destination) FinalizeTransfer(ctx context.Context, filePath string, pro
 		return
 	}
 
-	var upload *s3Upload
-	if upload, err = d.getUpload(filePath, s3Cli.bucket, s3Cli.client); err != nil {
-		return
-	}
+	upload := d.getUpload(filePath, s3Cli.bucket, s3Cli.client)
 
 	// set the info upload if it is not set yet
 	if err = upload.setInternalInfo(ctx); err != nil {
@@ -464,10 +455,7 @@ func (d *Destination) DeleteFile(ctx context.Context, filePath string, protocol 
 		return
 	}
 
-	var upload *s3Upload
-	if upload, err = d.getUpload(filePath, s3Cli.bucket, s3Cli.client); err != nil {
-		return
-	}
+	upload := d.getUpload(filePath, s3Cli.bucket, s3Cli.client)
 
 	// set the info upload if it is not set yet
 	if err = upload.setInternalInfo(ctx); err != nil {
@@ -542,7 +530,7 @@ func (d *Destination) getUpload(
 	filePath string,
 	bucket string,
 	client protoc.S3API,
-) (upload *s3Upload, err error) {
+) (upload *s3Upload) {
 	upload = &s3Upload{
 		store:              d,
 		bucket:             bucket,
