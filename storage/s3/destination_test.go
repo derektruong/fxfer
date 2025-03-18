@@ -15,8 +15,10 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
+	"github.com/brianvoe/gofakeit/v7"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/internal/xferfile/xferfiletest"
+	localio_protoc "github.com/derektruong/fxfer/protoc/local"
 	mock_protoc "github.com/derektruong/fxfer/protoc/mock"
 	s3_protoc "github.com/derektruong/fxfer/protoc/s3"
 	"github.com/derektruong/fxfer/storage"
@@ -245,6 +247,17 @@ var _ = Describe("Destination", func() {
 			Expect(info.Size).To(Equal(fileInfo.Size))
 			Expect(info.Offset).To(Equal(fileInfo.Size))
 		}, NodeTimeout(10*time.Second))
+
+		It("should return error when checking and setting client failed", func(ctx context.Context) {
+			mockClient.EXPECT().GetConnectionID().Return("")
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			wrongClient := localio_protoc.NewIO()
+			mockClient.EXPECT().GetCredential().
+				Return(*wrongClient)
+
+			_, err := destStorage.GetFileInfo(ctx, fileInfo.Path, mockClient)
+			Expect(err).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+		}, NodeTimeout(10*time.Second))
 	})
 
 	Describe("CreateFile", func() {
@@ -454,6 +467,65 @@ var _ = Describe("Destination", func() {
 				mockClient,
 			)
 			Expect(err.Error()).To(ContainSubstring("file extension is required"))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when checking and setting client failed", func(ctx context.Context) {
+			mockClient.EXPECT().GetConnectionID().Return("")
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			wrongClient := localio_protoc.NewIO()
+			mockClient.EXPECT().GetCredential().
+				Return(*wrongClient)
+
+			Expect(destStorage.CreateFile(
+				ctx,
+				fileInfo.Path, fileInfo.Size, fileInfo.ModTime,
+				mockClient,
+			)).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when creating multipart upload failed", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().
+				Return(connID)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().
+				Return(*s3ProtocClient)
+
+			occurError := gofakeit.Error()
+			mockS3API.EXPECT().CreateMultipartUpload(ctx, &awss3.CreateMultipartUploadInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String(fileInfo.Path),
+			}).Return(nil, occurError)
+
+			Expect(destStorage.CreateFile(
+				ctx,
+				fileInfo.Path, fileInfo.Size, fileInfo.ModTime,
+				mockClient,
+			)).To(MatchError(occurError))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when writing info failed", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().
+				Return(connID)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().
+				Return(*s3ProtocClient)
+			mockS3API.EXPECT().CreateMultipartUpload(ctx, &awss3.CreateMultipartUploadInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String(fileInfo.Path),
+			}).Return(&awss3.CreateMultipartUploadOutput{
+				UploadId: aws.String("test-multipart-id"),
+			}, nil)
+			occurError := gofakeit.Error()
+			mockS3API.EXPECT().PutObject(ctx, gomock.Any()).
+				Return(nil, occurError)
+
+			Expect(destStorage.CreateFile(
+				ctx,
+				fileInfo.Path, fileInfo.Size, fileInfo.ModTime,
+				mockClient,
+			)).To(MatchError(occurError))
 		}, NodeTimeout(10*time.Second))
 	})
 
@@ -1010,6 +1082,34 @@ var _ = Describe("Destination", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(files)).To(Equal(0))
 		}, NodeTimeout(10*time.Second))
+
+		It("should return error when checking and setting client failed", func(ctx context.Context) {
+			mockClient.EXPECT().GetConnectionID().Return("")
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			wrongClient := localio_protoc.NewIO()
+			mockClient.EXPECT().GetCredential().
+				Return(*wrongClient)
+
+			_, err := destStorage.TransferFileChunk(
+				ctx,
+				fileInfo.Path, bytes.NewReader([]byte("1234567890ABCD")), 0, mockClient,
+			)
+			Expect(err).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when getting internal info failed", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().Return(*s3ProtocClient)
+
+			fileInfo.Path = "test-file/path" // no extension
+			_, err := destStorage.TransferFileChunk(
+				ctx,
+				fileInfo.Path, bytes.NewReader([]byte("1234567890ABCD")), 0, mockClient,
+			)
+			Expect(err).To(MatchError("file extension is required"))
+		}, NodeTimeout(10*time.Second))
 	})
 
 	Describe("FinalizeTransfer", func() {
@@ -1254,6 +1354,14 @@ var _ = Describe("Destination", func() {
 				mockClient,
 			)).To(Succeed())
 		}, NodeTimeout(10*time.Second))
+	})
+
+	Describe("Close", func() {
+		It("should close the storage successfully", func() {
+			Expect(func() {
+				destStorage.Close()
+			}).ShouldNot(Panic())
+		})
 	})
 })
 
