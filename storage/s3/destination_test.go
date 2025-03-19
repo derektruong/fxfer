@@ -1286,6 +1286,93 @@ var _ = Describe("Destination", func() {
 				mockClient,
 			)).To(MatchError(storage.ErrFileOrObjectCannotFinalize))
 		}, NodeTimeout(10*time.Second))
+
+		It("should return error when checking and setting client failed", func(ctx context.Context) {
+			mockClient.EXPECT().GetConnectionID().Return("")
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			wrongClient := localio_protoc.NewIO()
+			mockClient.EXPECT().GetCredential().
+				Return(*wrongClient)
+
+			Expect(destStorage.FinalizeTransfer(
+				ctx,
+				fileInfo.Path,
+				mockClient,
+			)).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when getting internal info failed", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().Return(*s3ProtocClient)
+
+			fileInfo.Path = "test-file/path" // no extension
+			Expect(destStorage.FinalizeTransfer(
+				ctx,
+				fileInfo.Path,
+				mockClient,
+			)).To(MatchError("file extension is required"))
+		}, NodeTimeout(10*time.Second))
+
+		It("should finish the upload successfully", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().Return(connID)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().Return(*s3ProtocClient)
+			mockS3API.EXPECT().GetObject(ctx, gomock.Any()).
+				DoAndReturn(func(
+					ctx context.Context,
+					input *awss3.GetObjectInput,
+					opts ...func(*awss3.Options),
+				) (*awss3.GetObjectOutput, error) {
+					fileInfo.Size = 400
+					fileInfo.Offset = 0
+					fileInfo.Metadata[bucketMeta] = bucketName
+					fileInfo.Metadata[multipartIDMeta] = "test-multipart-id"
+					fileInfo.Metadata[objectKeyMeta] = fileInfo.Path
+					infoBytes, err := json.Marshal(fileInfo)
+					Expect(err).ToNot(HaveOccurred())
+					return &awss3.GetObjectOutput{
+						Body: io.NopCloser(bytes.NewReader(infoBytes)),
+					}, nil
+				})
+			mockS3API.EXPECT().ListParts(ctx, gomock.Any()).Return(&awss3.ListPartsOutput{
+				Parts: []types.Part{
+					{
+						Size:       aws.Int64(100),
+						ETag:       aws.String("etag-1"),
+						PartNumber: aws.Int32(1),
+					},
+					{
+						Size:       aws.Int64(200),
+						ETag:       aws.String("etag-2"),
+						PartNumber: aws.Int32(2),
+					},
+				},
+				NextPartNumberMarker: aws.String("2"),
+				IsTruncated:          aws.Bool(true),
+			}, nil)
+			mockS3API.EXPECT().ListParts(ctx, gomock.Any()).Return(&awss3.ListPartsOutput{
+				Parts: []types.Part{
+					{
+						Size:       aws.Int64(100),
+						ETag:       aws.String("etag-3"),
+						PartNumber: aws.Int32(3),
+					},
+				},
+			}, nil)
+			mockS3API.EXPECT().HeadObject(ctx, gomock.Any()).Return(nil, &types.NotFound{})
+
+			occurError := gofakeit.Error()
+			mockS3API.EXPECT().CompleteMultipartUpload(ctx, gomock.Any()).Return(nil, occurError)
+
+			Expect(destStorage.FinalizeTransfer(
+				ctx,
+				fileInfo.Path,
+				mockClient,
+			)).To(MatchError(occurError))
+		}, NodeTimeout(10*time.Second))
 	})
 
 	Describe("DeleteFile", func() {
@@ -1353,6 +1440,125 @@ var _ = Describe("Destination", func() {
 				fileInfo.Path,
 				mockClient,
 			)).To(Succeed())
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when checking and setting client failed", func(ctx context.Context) {
+			mockClient.EXPECT().GetConnectionID().Return("")
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			wrongClient := localio_protoc.NewIO()
+			mockClient.EXPECT().GetCredential().
+				Return(*wrongClient)
+
+			Expect(destStorage.DeleteFile(
+				ctx,
+				fileInfo.Path,
+				mockClient,
+			)).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when getting internal info failed", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().Return(connID).Times(1)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().Return(*s3ProtocClient)
+
+			fileInfo.Path = "test-file/path" // no extension
+			Expect(destStorage.DeleteFile(
+				ctx,
+				fileInfo.Path,
+				mockClient,
+			)).To(MatchError("file extension is required"))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when aborting upload failed", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().
+				Return(connID)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().
+				Return(*s3ProtocClient)
+			mockS3API.EXPECT().GetObject(ctx, gomock.Any()).
+				DoAndReturn(func(
+					ctx context.Context,
+					input *awss3.GetObjectInput,
+					opts ...func(*awss3.Options),
+				) (*awss3.GetObjectOutput, error) {
+					Expect(*input.Bucket).To(Equal(bucketName))
+					Expect(*input.Key).To(Equal(infoPath))
+
+					fileInfo.Metadata[bucketMeta] = bucketName
+					fileInfo.Metadata[multipartIDMeta] = "test-multipart-id"
+					fileInfo.Metadata[objectKeyMeta] = fileInfo.Path
+					infoBytes, err := json.Marshal(fileInfo)
+					Expect(err).ToNot(HaveOccurred())
+					return &awss3.GetObjectOutput{
+						Body: io.NopCloser(bytes.NewReader(infoBytes)),
+					}, nil
+				})
+			mockS3API.EXPECT().ListParts(ctx, &awss3.ListPartsInput{
+				Bucket:           aws.String(bucketName),
+				Key:              &fileInfo.Path,
+				UploadId:         aws.String("test-multipart-id"),
+				PartNumberMarker: nil,
+			}).Return(&awss3.ListPartsOutput{}, nil)
+			mockS3API.EXPECT().HeadObject(ctx, &awss3.HeadObjectInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String(fileInfo.Metadata[multipartKeyMeta]),
+			}).Return(nil, &types.NotFound{})
+
+			occurError := gofakeit.Error()
+			mockS3API.EXPECT().AbortMultipartUpload(ctx, &awss3.AbortMultipartUploadInput{
+				Bucket:   aws.String(bucketName),
+				Key:      &fileInfo.Path,
+				UploadId: aws.String("test-multipart-id"),
+			}).Return(nil, occurError)
+
+			mockS3API.EXPECT().DeleteObjects(ctx, gomock.Any()).Return(&awss3.DeleteObjectsOutput{}, nil)
+
+			Expect(destStorage.DeleteFile(
+				ctx,
+				fileInfo.Path,
+				mockClient,
+			)).To(MatchError(occurError))
+		}, NodeTimeout(10*time.Second))
+
+		It("should return error when deleting multipart upload failed", func(ctx context.Context) {
+			connID := uuid.NewString()
+			mockClient.EXPECT().GetConnectionID().
+				Return(connID)
+			mockClient.EXPECT().GetS3API().Return(mockS3API)
+			mockClient.EXPECT().GetCredential().
+				Return(*s3ProtocClient)
+			mockS3API.EXPECT().GetObject(ctx, gomock.Any()).
+				DoAndReturn(func(
+					ctx context.Context,
+					input *awss3.GetObjectInput,
+					opts ...func(*awss3.Options),
+				) (*awss3.GetObjectOutput, error) {
+					Expect(*input.Bucket).To(Equal(bucketName))
+					Expect(*input.Key).To(Equal(infoPath))
+
+					fileInfo.Metadata[bucketMeta] = bucketName
+					fileInfo.Metadata[multipartIDMeta] = "test-multipart-id"
+					fileInfo.Metadata[objectKeyMeta] = fileInfo.Path
+					infoBytes, err := json.Marshal(fileInfo)
+					Expect(err).ToNot(HaveOccurred())
+					return &awss3.GetObjectOutput{
+						Body: io.NopCloser(bytes.NewReader(infoBytes)),
+					}, nil
+				})
+			mockS3API.EXPECT().ListParts(ctx, gomock.Any()).Return(&awss3.ListPartsOutput{}, nil)
+			mockS3API.EXPECT().HeadObject(ctx, gomock.Any()).Return(nil, &types.NotFound{})
+			mockS3API.EXPECT().AbortMultipartUpload(ctx, gomock.Any()).Return(nil, nil)
+
+			occurError := gofakeit.Error()
+			mockS3API.EXPECT().DeleteObjects(ctx, gomock.Any()).Return(nil, occurError)
+
+			Expect(destStorage.DeleteFile(
+				ctx,
+				fileInfo.Path,
+				mockClient,
+			)).To(MatchError(occurError))
 		}, NodeTimeout(10*time.Second))
 	})
 

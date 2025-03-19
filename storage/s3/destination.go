@@ -84,6 +84,7 @@ import (
 
 	"github.com/aws/smithy-go"
 	"github.com/derektruong/fxfer/internal/fileutils"
+	"github.com/derektruong/fxfer/internal/iometer"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/protoc"
 	"github.com/derektruong/fxfer/protoc/s3"
@@ -346,6 +347,11 @@ func (d *Destination) TransferFileChunk(
 	}
 	incompletePartSize := upload.incompletePartSize
 
+	// create a transfer reader with rate limiting
+	transferReader := iometer.NewTransferReader(src, &offset)
+	transferReader.SetRateLimit(upload.calcOptimalSpeed())
+	src = io.Reader(transferReader)
+
 	// get the total size of the current upload, number of parts to generate next number and whether
 	// an incomplete part exists
 	if incompletePartSize > 0 {
@@ -371,10 +377,7 @@ func (d *Destination) TransferFileChunk(
 
 	// the size of the incomplete part should not be counted, because the
 	// process of the incomplete part should be fully transparent to the user.
-	bytesUploaded = bytesUploaded - incompletePartSize
-	if bytesUploaded < 0 {
-		bytesUploaded = 0
-	}
+	bytesUploaded = max(bytesUploaded - incompletePartSize, 0)
 
 	upload.info.Offset += bytesUploaded
 	if upload.info.Size == 0 {
@@ -398,9 +401,9 @@ func (d *Destination) FinalizeTransfer(ctx context.Context, filePath string, pro
 	parts := upload.parts
 
 	if len(parts) == 0 {
-		// AWS expects at least one part to be present when completing the multipart
-		// u. So if the transfer has a size of 0, we create an empty part
-		// and use that for completing the multipart u.
+		// AWS expects at least one part to be present when completing the multipart.
+		// So if the transfer has a size of 0, we create an empty part
+		// and use that for completing the multipart.
 		var res *awss3.UploadPartOutput
 		if res, err = upload.client.UploadPart(ctx, &awss3.UploadPartInput{
 			Bucket:     aws.String(upload.bucket),
