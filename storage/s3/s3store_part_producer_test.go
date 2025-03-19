@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"os"
 	"strings"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type InfiniteZeroReader struct{}
@@ -23,7 +25,14 @@ func (ErrorReader) Read(b []byte) (int, error) {
 	return 0, errors.New("error from ErrorReader")
 }
 
-var _ = Describe("S3storePartProducerGinkgo", func() {
+var _ = Describe("S3storePartProducer", func() {
+	It("should use memory when FILE_TRANSFERER_S3_TEMP_MEMORY is set", func() {
+		Expect(os.Setenv("FILE_TRANSFERER_S3_TEMP_MEMORY", "1")).To(Succeed())
+		defer os.Unsetenv("FILE_TRANSFERER_S3_TEMP_MEMORY")
+		s3PartProducer, _ := newS3PartProducer(strings.NewReader(""), 0, "")
+		Expect(s3PartProducer.tmpDir).To(Equal(TempDirUseMemory))
+	})
+
 	It("part producer should consumes entire reader without error", func() {
 		expectedStr := "test"
 		r := strings.NewReader(expectedStr)
