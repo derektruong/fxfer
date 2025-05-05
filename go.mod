@@ -1,6 +1,7 @@
 module github.com/derektruong/fxfer
 
 go 1.24.0
+
 require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.2
 	github.com/aws/smithy-go/metrics/smithyotelmetrics v1.0.4
@@ -8,7 +9,7 @@ require (
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/onsi/ginkgo/v2 v2.23.3
 	github.com/onsi/gomega v1.36.3
-	github.com/samber/lo v1.49.1
+	github.com/samber/lo v1.50.0
 	go.uber.org/mock v0.5.0
 	golang.org/x/time v0.11.0
 )
