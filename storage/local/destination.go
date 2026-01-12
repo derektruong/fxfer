@@ -3,27 +3,40 @@ package local
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"github.com/derektruong/fxfer/internal/fileutils"
+	"github.com/derektruong/fxfer/internal/iometer"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/protoc"
 	"github.com/derektruong/fxfer/protoc/local"
 	"github.com/derektruong/fxfer/storage"
-	"github.com/go-logr/logr"
 )
 
 var defaultFilePerm = os.FileMode(0664)
 
 type Destination struct {
 	logger logr.Logger
+
+	// bytesTransferred are used to store the destination bytes transferred
+	bytesTransferred *int64
 }
 
 func NewDestination(logger logr.Logger) (s *Destination, err error) {
 	s = &Destination{
-		logger: logger.WithName("local.destination"),
+		logger:           logger.WithName("local.destination"),
+		bytesTransferred: new(int64),
+	}
+	if err = s.registerMeterCallback(); err != nil {
+		return
 	}
 	return
 }
@@ -38,35 +51,38 @@ func (d *Destination) GetFileInfo(
 	cli protoc.Client,
 ) (info xferfile.Info, err error) {
 	if _, ok := cli.GetCredential().(local.IO); !ok {
-		err = storage.ErrLocalProtocolIOInvalid
+		err = protoc.ErrProtocolInvalid(protoc.LocalProtoc)
 		return
 	}
 
 	// extract file info
 	var infoPath string
 	if infoPath, err = xferfile.GenerateInfoPath(filePath); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 
 	// read file info
 	var infoData []byte
 	if infoData, err = os.ReadFile(infoPath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			err = xferfile.ErrFileNotExists
 		}
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	if err = json.Unmarshal(infoData, &info); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 
 	// open file for reading
 	var fileStat os.FileInfo
 	if fileStat, err = os.Stat(filePath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			err = xferfile.ErrFileNotExists
-			return
 		}
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 
@@ -81,18 +97,20 @@ func (d *Destination) CreateFile(
 	cli protoc.Client,
 ) (err error) {
 	if _, ok := cli.GetCredential().(local.IO); !ok {
-		err = storage.ErrLocalProtocolIOInvalid
+		err = protoc.ErrProtocolInvalid(protoc.LocalProtoc)
 		return
 	}
 
 	var dirPath, fileName, fileExt string
 	if dirPath, fileName, fileExt, err = fileutils.ExtractFileParts(path); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 
 	// create directory if not exists
-	if _, err = os.Stat(dirPath); os.IsNotExist(err) {
+	if _, err = os.Stat(dirPath); errors.Is(err, fs.ErrNotExist) {
 		if err = os.MkdirAll(dirPath, 0755); err != nil {
+			err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 			return
 		}
 	}
@@ -100,21 +118,27 @@ func (d *Destination) CreateFile(
 	// open file with create flag
 	var file *os.File
 	if file, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY, defaultFilePerm); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			err = xferfile.ErrFileNotExists
 		}
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	defer file.Close()
 
-	return d.writeInfo(path, xferfile.Info{
+	if err = d.writeInfo(path, xferfile.Info{
 		Path:      path,
 		Size:      size,
 		ModTime:   modTime,
 		StartTime: time.Now(),
 		Name:      fileName,
 		Extension: fileExt,
-	})
+	}); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
+		return
+	}
+
+	return
 }
 
 func (d *Destination) TransferFileChunk(
@@ -125,17 +149,21 @@ func (d *Destination) TransferFileChunk(
 	cli protoc.Client,
 ) (n int64, err error) {
 	if _, ok := cli.GetCredential().(local.IO); !ok {
-		err = storage.ErrLocalProtocolIOInvalid
+		err = protoc.ErrProtocolInvalid(protoc.LocalProtoc)
 		return
 	}
 
 	// open file with append flag
 	var file *os.File
 	if file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_APPEND, defaultFilePerm); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	defer file.Close()
-	if n, err = io.Copy(file, reader); err != nil {
+	transferReader := iometer.NewTransferReader(reader, d.bytesTransferred)
+	defer transferReader.Close()
+	if n, err = io.Copy(file, transferReader); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	return
@@ -147,43 +175,52 @@ func (d *Destination) FinalizeTransfer(
 	cli protoc.Client,
 ) (err error) {
 	if _, ok := cli.GetCredential().(local.IO); !ok {
-		err = storage.ErrLocalProtocolIOInvalid
+		err = protoc.ErrProtocolInvalid(protoc.LocalProtoc)
 		return
 	}
 
 	var info xferfile.Info
 	if info, err = d.GetFileInfo(ctx, filePath, cli); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	if info.Offset != info.Size {
-		err = storage.ErrFileOrObjectCannotFinalize
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, storage.ErrFileOrObjectCannotFinalize)
 		return
 	}
 	info.Offset = info.Size
 	info.FinishTime = time.Now()
-	return d.writeInfo(filePath, info)
+	if err = d.writeInfo(filePath, info); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
+		return
+	}
+
+	return
 }
 
 func (d *Destination) DeleteFile(ctx context.Context, filePath string, protocol protoc.Client) (err error) {
 	if _, ok := protocol.GetCredential().(local.IO); !ok {
-		err = storage.ErrLocalProtocolIOInvalid
+		err = protoc.ErrProtocolInvalid(protoc.LocalProtoc)
 		return
 	}
 
 	if err = os.Remove(filePath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			err = xferfile.ErrFileNotExists
 		}
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	var infoPath string
 	if infoPath, err = xferfile.GenerateInfoPath(filePath); err != nil {
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	if err = os.Remove(infoPath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			err = xferfile.ErrFileNotExists
 		}
+		err = storage.WrapErrorWithStorage(storage.LocalStorage, false, err)
 		return
 	}
 	return
@@ -199,4 +236,22 @@ func (d *Destination) writeInfo(filePath string, info xferfile.Info) (err error)
 		return
 	}
 	return os.WriteFile(infoPath, infoData, defaultFilePerm)
+}
+
+func (d *Destination) registerMeterCallback() (err error) {
+	meter := otel.GetMeterProvider().Meter(fmt.Sprintf("%s/destination", meterNamePrefix))
+	var totalBytesTransferred metric.Int64ObservableCounter
+	if totalBytesTransferred, err = meter.Int64ObservableCounter("bytes_transferred"); err != nil {
+		return
+	}
+
+	// setup observer
+	_, err = meter.RegisterCallback(
+		func(ctx context.Context, o metric.Observer) (err error) {
+			o.ObserveInt64(totalBytesTransferred, *d.bytesTransferred)
+			return
+		},
+		totalBytesTransferred,
+	)
+	return
 }

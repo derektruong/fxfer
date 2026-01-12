@@ -2,16 +2,19 @@ package local_test
 
 import (
 	"context"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
-	local_protoc "github.com/derektruong/fxfer/protoc/local"
-	"github.com/derektruong/fxfer/storage/local"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/derektruong/fxfer/protoc/ftp"
+	local_protoc "github.com/derektruong/fxfer/protoc/local"
+	"github.com/derektruong/fxfer/storage/local"
 )
 
 var _ = Describe("Source", func() {
@@ -33,7 +36,12 @@ var _ = Describe("Source", func() {
 			_, err := srcStorage.GetFileInfo(
 				ctx,
 				"test",
-				local_protoc.NewIO(),
+				ftp.NewClient(
+					"test",
+					1234,
+					"test",
+					"test",
+				),
 			)
 			Expect(err).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
@@ -54,7 +62,7 @@ var _ = Describe("Source", func() {
 
 		It("should return error if file does not exist", func(ctx context.Context) {
 			_, err := srcStorage.GetFileInfo(ctx, "test", local_protoc.NewIO())
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(errors.Is(err, fs.ErrNotExist)).To(BeTrue())
 		})
 	})
 
@@ -64,7 +72,12 @@ var _ = Describe("Source", func() {
 				ctx,
 				"test",
 				0,
-				local_protoc.NewIO(),
+				ftp.NewClient(
+					"test",
+					1234,
+					"test",
+					"test",
+				),
 			)
 			Expect(err).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
@@ -93,7 +106,7 @@ var _ = Describe("Source", func() {
 
 		It("should return error if file does not exist", func(ctx context.Context) {
 			_, err := srcStorage.GetFileFromOffset(ctx, "test", 0, local_protoc.NewIO())
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(errors.Is(err, fs.ErrNotExist)).To(BeTrue())
 		})
 	})
 })

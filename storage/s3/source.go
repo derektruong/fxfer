@@ -13,7 +13,6 @@ import (
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/protoc"
 	"github.com/derektruong/fxfer/protoc/s3"
-	"github.com/derektruong/fxfer/storage"
 	"github.com/go-logr/logr"
 	"github.com/samber/lo"
 )
@@ -105,7 +104,7 @@ func (s *Source) checkAndSetClient(protocol protoc.Client) (conn *s3Client, err 
 		client := protocol.GetS3API()
 		cred, ok := protocol.GetCredential().(s3.Client)
 		if !ok {
-			err = storage.ErrS3ProtocolClientInvalid
+			err = protoc.ErrProtocolInvalid(protoc.S3Protoc)
 			return
 		}
 		conn = &s3Client{

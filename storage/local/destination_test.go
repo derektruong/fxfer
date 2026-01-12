@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/derektruong/fxfer/internal/xferfile"
+	"github.com/derektruong/fxfer/protoc/ftp"
 	local_protoc "github.com/derektruong/fxfer/protoc/local"
 	"github.com/derektruong/fxfer/storage"
 	"github.com/derektruong/fxfer/storage/local"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Destination", func() {
@@ -38,7 +41,12 @@ var _ = Describe("Destination", func() {
 			_, err := destStorage.GetFileInfo(
 				ctx,
 				"test",
-				local_protoc.NewIO(),
+				ftp.NewClient(
+					"test",
+					1234,
+					"test",
+					"test",
+				),
 			)
 			Expect(err).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
@@ -77,7 +85,12 @@ var _ = Describe("Destination", func() {
 				"test",
 				1234,
 				gofakeit.PastDate(),
-				local_protoc.NewIO(),
+				ftp.NewClient(
+					"test",
+					1234,
+					"test",
+					"test",
+				),
 			)
 			Expect(err).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
@@ -140,7 +153,12 @@ var _ = Describe("Destination", func() {
 				"test",
 				bytes.NewReader([]byte("test")),
 				0,
-				local_protoc.NewIO(),
+				ftp.NewClient(
+					"test",
+					1234,
+					"test",
+					"test",
+				),
 			)
 			Expect(err).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
@@ -228,7 +246,12 @@ var _ = Describe("Destination", func() {
 			err := destStorage.FinalizeTransfer(
 				ctx,
 				"test",
-				local_protoc.NewIO(),
+				ftp.NewClient(
+					"test",
+					1234,
+					"test",
+					"test",
+				),
 			)
 			Expect(err).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
@@ -284,7 +307,12 @@ var _ = Describe("Destination", func() {
 			err := destStorage.DeleteFile(
 				ctx,
 				"test",
-				local_protoc.NewIO(),
+				ftp.NewClient(
+					"test",
+					1234,
+					"test",
+					"test",
+				),
 			)
 			Expect(err).To(HaveOccurred())
 		}, NodeTimeout(10*time.Second))
@@ -302,11 +330,11 @@ var _ = Describe("Destination", func() {
 
 			By("assert the file does not exist")
 			_, err := os.Stat(filePath)
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(errors.Is(err, fs.ErrNotExist)).To(BeTrue())
 
 			By("assert the file info does not exist")
 			_, err = os.Stat(filePath + ".info")
-			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(errors.Is(err, fs.ErrNotExist)).To(BeTrue())
 		}, NodeTimeout(10*time.Second))
 	})
 })

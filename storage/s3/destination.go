@@ -601,7 +601,7 @@ func (d *Destination) checkAndSetClient(protocol protoc.Client) (conn *s3Client,
 		client := protocol.GetS3API()
 		cred, ok := protocol.GetCredential().(s3.Client)
 		if !ok {
-			err = storage.ErrS3ProtocolClientInvalid
+			err = protoc.ErrProtocolInvalid(protoc.S3Protoc)
 			return
 		}
 		conn = &s3Client{
