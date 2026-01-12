@@ -1,9 +1,39 @@
 package storage
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
-var ErrLocalProtocolIOInvalid = errors.New("protocol: local IO invalid, expected local")
-var ErrFTPProtocolClientInvalid = errors.New("protocol: client invalid, expected FTP")
-var ErrSFTPProtocolClientInvalid = errors.New("protocol: client invalid, expected SFTP")
-var ErrS3ProtocolClientInvalid = errors.New("protocol: client invalid, expected S3")
-var ErrFileOrObjectCannotFinalize = errors.New("file or object cannot finalize, please retry")
+type Storage string
+
+const (
+	S3Storage         Storage = "S3"
+	FTPServerStorage  Storage = "FTPServer"
+	SFTPServerStorage Storage = "SFTPServer"
+	LocalStorage      Storage = "Local"
+)
+
+var ErrFileOrObjectCannotFinalize = errors.New("file or object cannot finalize, retry if possible")
+
+// WrapErrorWithStorage wraps the error with storage information
+//
+// Parameters:
+//   - storage: The type of storage (e.g., S3, FTPServer, etc.)
+//   - isSource: Indicates whether the storage is a source or destination
+//   - err: The original error to be wrapped
+//
+// Returns:
+//   - error: The verbose error message with storage information
+func WrapErrorWithStorage(storage Storage, isSource bool, err error) error {
+	if err == nil {
+		return nil
+	}
+	var storageType string
+	if isSource {
+		storageType = "source"
+	} else {
+		storageType = "destination"
+	}
+	return fmt.Errorf("at %q %s storage, occurred error: %w", storage, storageType, err)
+}

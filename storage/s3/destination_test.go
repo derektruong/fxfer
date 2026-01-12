@@ -18,6 +18,7 @@ import (
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/derektruong/fxfer/internal/xferfile"
 	"github.com/derektruong/fxfer/internal/xferfile/xferfiletest"
+	"github.com/derektruong/fxfer/protoc"
 	localio_protoc "github.com/derektruong/fxfer/protoc/local"
 	mock_protoc "github.com/derektruong/fxfer/protoc/mock"
 	s3_protoc "github.com/derektruong/fxfer/protoc/s3"
@@ -256,7 +257,7 @@ var _ = Describe("Destination", func() {
 				Return(*wrongClient)
 
 			_, err := destStorage.GetFileInfo(ctx, fileInfo.Path, mockClient)
-			Expect(err).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+			Expect(err).To(MatchError(protoc.ErrProtocolInvalid(protoc.S3Protoc)))
 		}, NodeTimeout(10*time.Second))
 	})
 
@@ -480,7 +481,7 @@ var _ = Describe("Destination", func() {
 				ctx,
 				fileInfo.Path, fileInfo.Size, fileInfo.ModTime,
 				mockClient,
-			)).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+			)).To(MatchError(protoc.ErrProtocolInvalid(protoc.S3Protoc)))
 		}, NodeTimeout(10*time.Second))
 
 		It("should return error when creating multipart upload failed", func(ctx context.Context) {
@@ -1094,7 +1095,7 @@ var _ = Describe("Destination", func() {
 				ctx,
 				fileInfo.Path, bytes.NewReader([]byte("1234567890ABCD")), 0, mockClient,
 			)
-			Expect(err).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+			Expect(err).To(MatchError(protoc.ErrProtocolInvalid(protoc.S3Protoc)))
 		}, NodeTimeout(10*time.Second))
 
 		It("should return error when getting internal info failed", func(ctx context.Context) {
@@ -1298,7 +1299,7 @@ var _ = Describe("Destination", func() {
 				ctx,
 				fileInfo.Path,
 				mockClient,
-			)).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+			)).To(MatchError(protoc.ErrProtocolInvalid(protoc.S3Protoc)))
 		}, NodeTimeout(10*time.Second))
 
 		It("should return error when getting internal info failed", func(ctx context.Context) {
@@ -1453,7 +1454,7 @@ var _ = Describe("Destination", func() {
 				ctx,
 				fileInfo.Path,
 				mockClient,
-			)).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+			)).To(MatchError(protoc.ErrProtocolInvalid(protoc.S3Protoc)))
 		}, NodeTimeout(10*time.Second))
 
 		It("should return error when getting internal info failed", func(ctx context.Context) {

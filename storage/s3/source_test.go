@@ -10,10 +10,10 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/derektruong/fxfer/internal/xferfile"
+	"github.com/derektruong/fxfer/protoc"
 	localio_protoc "github.com/derektruong/fxfer/protoc/local"
 	mock_protoc "github.com/derektruong/fxfer/protoc/mock"
 	s3_protoc "github.com/derektruong/fxfer/protoc/s3"
-	"github.com/derektruong/fxfer/storage"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -74,7 +74,7 @@ var _ = Describe("Source", func() {
 				Return(*wrongClient)
 
 			_, err = srcStorage.GetFileInfo(ctx, filePath, mockClient)
-			Expect(err).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+			Expect(err).To(MatchError(protoc.ErrProtocolInvalid(protoc.S3Protoc)))
 		}, NodeTimeout(10*time.Second))
 
 		It("should return error when extracting file info", func(ctx context.Context) {
@@ -122,7 +122,7 @@ var _ = Describe("Source", func() {
 				Return(*wrongClient)
 
 			_, err = srcStorage.GetFileFromOffset(ctx, filePath, 0, mockClient)
-			Expect(err).To(MatchError(storage.ErrS3ProtocolClientInvalid))
+			Expect(err).To(MatchError(protoc.ErrProtocolInvalid(protoc.S3Protoc)))
 		}, NodeTimeout(10*time.Second))
 
 		It("should return error when getting file object", func(ctx context.Context) {
